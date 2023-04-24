@@ -1,0 +1,8 @@
+# Build
+build
+
+# Config
+config/Config.cpp
+
+# Others
+.DS_Store
