@@ -1,0 +1,27 @@
+// #ifndef Config_cpp
+// #define Config_cpp
+
+// #include "../lib/Config.hpp"
+
+// Config config = {
+//     .otaConfig = {
+//         .otaHostname = "",
+//         .otaPassword = "",
+//         .wifiHostname = "",
+//         .wifiPassword = "",
+//     },
+//     .autoCommandPedal = {
+//         .buttonPin = 0,
+//         .ledPin = 0,
+//         .outputPin = 0,
+//     },
+//     .autoCommandGate = {
+//         .buttonPin = 0,
+//         .ledPin = 0,
+//         .outputPin1 = 0,
+//         .outputPin2 = 0,
+//     },
+//     .backlightPin = 0,
+// };
+
+// #endif
