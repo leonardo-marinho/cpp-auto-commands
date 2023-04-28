@@ -30,6 +30,7 @@ struct Config
   AutoCommandPedalConfig autoCommandPedal;
   AutoCommandGateConfig autoCommandGate;
   int backlightPin;
+  int backlightGnd;
 };
 
 #endif
