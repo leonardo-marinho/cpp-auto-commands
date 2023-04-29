@@ -37,17 +37,6 @@ private:
     updateModeLed();
   }
 
-  void setValetMode()
-  {
-    m_led->blink(200, 200, 0, 10);
-    m_output->pulse(MODE_RESET_DELAY);
-  }
-
-  void tickMode()
-  {
-    m_output->pulse(MODE_CHANGE_DELAY);
-  }
-
   void toggleMode()
   {
     m_isActiveMode = !m_isActiveMode;
@@ -107,6 +96,18 @@ public:
     {
       tickMode();
     }
+  }
+
+  void tickMode()
+  {
+    m_led->blink(200, 200, 0, 2);
+    m_output->pulse(MODE_CHANGE_DELAY);
+  }
+
+  void setValetMode()
+  {
+    m_led->blink(200, 200, 0, 4);
+    m_output->pulse(MODE_RESET_DELAY);
   }
 };
 
