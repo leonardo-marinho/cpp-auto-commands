@@ -19,7 +19,6 @@ AutoCommandGate commandGate(config.autoCommandGate.buttonPin, config.autoCommand
 
 void setup()
 {
-  Serial.begin(115200);
 #ifdef OTA_ENABLE
   ota.setup();
 #endif
@@ -36,22 +35,5 @@ void loop()
 #endif
   commandPedal.loop();
   commandGate.loop();
-
-  if (Serial.available())
-  {
-    String receivedString = Serial.readStringUntil('\n');
-    Serial.println("receivedString: " + receivedString);
-    if (receivedString == "1")
-    {
-      Serial.println("1");
-      commandPedal.tickMode();
-    }
-    else if (receivedString == "2")
-    {
-      Serial.println("2");
-      commandPedal.setValetMode();
-    }
-  }
-
   delay(LOOP_DELAY);
 }
