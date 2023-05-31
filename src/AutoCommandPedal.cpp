@@ -39,9 +39,16 @@ private:
 
   void toggleMode()
   {
+    if (m_isActiveMode)
+    {
+      m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 4);
+    }
+    else
+    {
+      m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 8);
+    }
     m_isActiveMode = !m_isActiveMode;
     updateModeLed();
-    m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 6);
   }
 
   void updateModeLed(unsigned long t_delay = 0)
