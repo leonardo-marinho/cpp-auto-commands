@@ -5,10 +5,13 @@
 #include "../lib/PedalBLE.cpp"
 #include <EEPROM.h>
 
-#define MODE_CHANGE_DELAY 300
+#define MODE_CHANGE_DELAY 200
 #define MODE_PARK_DELAY 2500
 #define EEPROm_targetMode_MEM_ADDR 0
 #define MAX_FEEDBACK_FAILS 10
+
+#define NORMAL_MODE PedalBLEModesEnum::M_0
+#define FAST_MODE PedalBLEModesEnum::M_100
 
 class AutoCommandPedal : public AutoCommand
 {
@@ -18,7 +21,7 @@ private:
   Button *m_button;
   ezOutput *m_led;
   ezOutput *m_output;
-  PedalBLEModesEnum m_targetMode = PedalBLEModesEnum::M_0;
+  PedalBLEModesEnum m_targetMode = NORMAL_MODE;
   PedalBLEModesEnum m_currMode = PedalBLEModesEnum::M_NONE;
   PedalBLEModesEnum m_memMode = PedalBLEModesEnum::M_NONE;
   int m_feedbackWait = 0;
@@ -34,14 +37,24 @@ private:
     {
       m_led->blink(250, 250);
     }
-    else if (m_targetMode == M_100)
+    else if (m_targetMode == FAST_MODE)
     {
       m_led->high();
     }
-    else if (m_targetMode == M_0)
+    else if (m_targetMode == NORMAL_MODE)
     {
       m_led->low();
     }
+  }
+
+  void toggleMode()
+  {
+    m_targetMode = m_currMode == NORMAL_MODE ? FAST_MODE : NORMAL_MODE;
+  }
+
+  void tickMode()
+  {
+    m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 2);
   }
 
 public:
@@ -107,22 +120,6 @@ public:
     {
       toggleMode();
     }
-  }
-
-  void toggleMode()
-  {
-    m_targetMode = m_currMode == M_0 ? M_100 : M_0;
-  }
-
-  void tickMode()
-  {
-    m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 2);
-  }
-
-  void setMode(int t_mode)
-  {
-    Serial.println("Setting mode" + String(t_mode));
-    m_targetMode = (PedalBLEModesEnum)t_mode;
   }
 };
 
