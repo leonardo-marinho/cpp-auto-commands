@@ -8,7 +8,7 @@
 #define MODE_CHANGE_DELAY 200
 #define MODE_PARK_DELAY 2500
 #define EEPROm_targetMode_MEM_ADDR 0
-#define MAX_FEEDBACK_FAILS 10
+#define MAX_FEEDBACK_FAILS 150
 
 #define NORMAL_MODE PedalBLEModesEnum::M_0
 #define FAST_MODE PedalBLEModesEnum::M_100
@@ -37,6 +37,14 @@ private:
     {
       m_led->blink(250, 250);
     }
+    else if (m_targetMode == PARK)
+    {
+      m_led->blink(1000, 2000);
+    }
+    else if (m_targetMode == LOCK)
+    {
+      m_led->low();
+    }
     else if (m_targetMode == FAST_MODE)
     {
       m_led->high();
@@ -47,6 +55,11 @@ private:
     }
   }
 
+  void tickParkMode()
+  {
+    m_output->blink(MODE_PARK_DELAY, MODE_PARK_DELAY, 0, 2);
+  }
+
   void toggleMode()
   {
     m_targetMode = m_currMode == NORMAL_MODE ? FAST_MODE : NORMAL_MODE;
@@ -55,6 +68,11 @@ private:
   void tickMode()
   {
     m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 2);
+  }
+
+  void setMode(PedalBLEModesEnum t_mode)
+  {
+    m_targetMode = t_mode;
   }
 
 public:
@@ -81,7 +99,7 @@ public:
     m_pedalBLE->loop();
 
     m_currMode = PedalBLE::getMode();
-    Serial.println("[PEDAL] Mem Mode: " + String(m_memMode) + " Curr Mode: " + String(m_currMode) + " Target Mode: " + String(m_targetMode));
+    Serial.println("[PEDAL] Mem Mode: " + String(m_memMode) + " Curr Mode: " + String(m_currMode) + " | Target Mode: " + String(m_targetMode) + " | Failed feedbacks: " + String(m_feedbackWaitFails));
 
     updateLeds();
 
@@ -92,6 +110,7 @@ public:
 
     if (m_feedbackWaitFails > MAX_FEEDBACK_FAILS)
     {
+      m_output->high();
       return;
     }
 
@@ -99,7 +118,14 @@ public:
     {
       if (m_currMode != m_memMode && !m_feedbackWait)
       {
-        tickMode();
+        if (m_targetMode == PARK || m_targetMode == LOCK)
+        {
+          tickParkMode();
+        }
+        else
+        {
+          tickMode();
+        }
         m_memMode = m_currMode;
         m_feedbackWait = true;
         m_feedbackWaitFails = 0;
@@ -108,7 +134,7 @@ public:
       {
         m_feedbackWait = false;
       }
-      else if (m_currMode != m_memMode && m_feedbackWait)
+      else
       {
         m_feedbackWaitFails++;
       }
@@ -119,6 +145,14 @@ public:
     if (m_button->isClicked())
     {
       toggleMode();
+    }
+    else if (m_button->isLongClicked())
+    {
+      setMode(PARK);
+    }
+    else if (m_button->isMultiClicked())
+    {
+      setMode(LOCK);
     }
   }
 };
