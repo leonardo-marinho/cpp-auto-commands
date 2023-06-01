@@ -2,7 +2,7 @@
 #include "./src/AutoCommandPedal.cpp"
 #include "./src/AutoCommandGate.cpp"
 
-#define OTA_ENABLE true
+#define OTA_ENABLE false
 #define LOOP_DELAY 50
 
 #define DEVICE_NAME "PdBooster"

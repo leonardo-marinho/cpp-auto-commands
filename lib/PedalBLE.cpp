@@ -5,23 +5,14 @@
 
 #define PEDAL_BLE_MAX_NORMAL_MODES 6
 
-static uint8_t heartbeatData[] = {0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF};
-static size_t heartbeatDataSize = sizeof(heartbeatData) / sizeof(uint8_t);
-
-static uint8_t nextModeData[] = {0x02, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFE};
-static size_t nextModeDataSize = sizeof(nextModeData) / sizeof(uint8_t);
-
-static uint8_t handshakeData[] = {0x0C, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xF4};
-static size_t handshakeDataSize = sizeof(handshakeData) / sizeof(uint8_t);
-
 enum PedalBLEStatusEnum
 {
   UNKNOWN,
   SETTING_UP,
   SCANNING,
-  RETRING_SCAN,
+  RETRYING_SCAN,
   CONNECTING,
-  RETRING_CONNECT,
+  RETRYING_CONNECT,
   HANDSHAKE,
   HEARTBEATING
 };
@@ -46,11 +37,9 @@ class PedalBLE
 private:
   BLEAdvertisedDevice m_device;
   BLEClient *m_client;
-  BLERemoteCharacteristic *m_characteristicWrite;
   BLERemoteCharacteristic *m_characteristicNotify;
   BLERemoteService *m_remoteService;
   BLEScan *m_scan;
-  BLEUUID m_characteristicWriteUUID;
   BLEUUID m_characteristicNotifyUUID;
   BLEUUID m_serviceUUID;
   bool m_isConnected = false;
@@ -73,8 +62,13 @@ private:
 
   void connectToServer()
   {
-    m_client->connect(&(m_device));
-    m_client->setMTU(247);
+    bool connected = m_client->connect(&(m_device));
+
+    if (!connected)
+    {
+      m_client->disconnect();
+      return;
+    }
 
     m_remoteService = m_client->getService(m_serviceUUID);
     if (m_remoteService == nullptr)
@@ -82,15 +76,6 @@ private:
       m_client->disconnect();
       return;
     }
-
-    m_characteristicWrite = m_remoteService->getCharacteristic(m_characteristicWriteUUID);
-    if (m_characteristicWrite == nullptr)
-    {
-      m_client->disconnect();
-      return;
-    }
-    if (m_characteristicWrite->canWrite())
-      m_characteristicWrite->writeValue(handshakeData, handshakeDataSize, false);
 
     m_characteristicNotify = m_remoteService->getCharacteristic(m_characteristicNotifyUUID);
     if (m_characteristicNotify == nullptr)
@@ -128,15 +113,9 @@ private:
     }
   }
 
-  void handShake()
-  {
-    m_characteristicWrite->writeValue(handshakeData, handshakeDataSize, false);
-  }
-
 public:
   PedalBLE(char *t_deviceName, BLEUUID t_serviceUUID, BLEUUID t_charUUID, BLEUUID t_char2UUID)
-      : m_characteristicWriteUUID(t_charUUID),
-        m_characteristicNotifyUUID(t_char2UUID),
+      : m_characteristicNotifyUUID(t_char2UUID),
         m_client(BLEDevice::createClient()),
         m_deviceName(t_deviceName),
         m_scan(BLEDevice::getScan()),
@@ -145,7 +124,6 @@ public:
   void setup()
   {
     BLEDevice::init("");
-    BLEDevice::setMTU(247);
     m_scan->setInterval(1349);
     m_scan->setWindow(449);
     m_scan->setActiveScan(true);
@@ -153,6 +131,7 @@ public:
 
   void loop()
   {
+    Serial.println(m_state);
     bool isDeviceAvailable = m_isDeviceAvailable;
     bool isConnected = m_isConnected;
     if (!isDeviceAvailable && !isConnected)
@@ -165,7 +144,7 @@ public:
         m_state = PedalBLEStatusEnum::SCANNING;
         return;
       }
-      m_state = PedalBLEStatusEnum::RETRING_SCAN;
+      m_state = PedalBLEStatusEnum::RETRYING_SCAN;
       return;
     }
 
@@ -180,23 +159,12 @@ public:
         return;
       }
 
-      m_state = PedalBLEStatusEnum::RETRING_CONNECT;
+      m_state = PedalBLEStatusEnum::RETRYING_CONNECT;
       return;
     }
 
     if (isConnected)
     {
-      bool hadHandShake = m_hadHandShake;
-      int heartbeatCount = m_heartbeatCount++;
-
-      if (!hadHandShake && heartbeatCount == 3)
-      {
-        handShake();
-        m_state = PedalBLEStatusEnum::HANDSHAKE;
-        return;
-      }
-
-      m_characteristicWrite->writeValue(heartbeatData, heartbeatDataSize, false);
       m_state = PedalBLEStatusEnum::HEARTBEATING;
       return;
     }
@@ -215,12 +183,12 @@ public:
       return "UNKNOWN";
     else if (t_state == PedalBLEStatusEnum::SCANNING)
       return "SCANNING";
-    else if (t_state == PedalBLEStatusEnum::RETRING_SCAN)
-      return "RETRING_SCAN";
+    else if (t_state == PedalBLEStatusEnum::RETRYING_SCAN)
+      return "RETRYING_SCAN";
     else if (t_state == PedalBLEStatusEnum::CONNECTING)
       return "CONNECTING";
-    else if (t_state == PedalBLEStatusEnum::RETRING_CONNECT)
-      return "RETRING_CONNECT";
+    else if (t_state == PedalBLEStatusEnum::RETRYING_CONNECT)
+      return "RETRYING_CONNECT";
     else if (t_state == PedalBLEStatusEnum::HANDSHAKE)
       return "HANDSHAKE";
     else if (t_state == PedalBLEStatusEnum::HEARTBEATING)
@@ -229,22 +197,17 @@ public:
       return "UNKNOWN";
   }
 
-  void nextMode()
-  {
-    m_characteristicWrite->writeValue(nextModeData, nextModeDataSize, false);
-  }
-
   bool isConnected()
   {
     return getState() == PedalBLEStatusEnum::HEARTBEATING;
   }
 
-  PedalBLEModesEnum getMode()
+  static PedalBLEModesEnum getMode()
   {
     return static_cast<PedalBLEModesEnum>(__mode);
   }
 
-  char *getModeName(PedalBLEModesEnum t_mode)
+  static char *getModeName(PedalBLEModesEnum t_mode)
   {
     if (t_mode == PedalBLEModesEnum::M_100)
       return "100%";
