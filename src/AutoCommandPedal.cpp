@@ -6,6 +6,7 @@
 
 #define MODE_CHANGE_DELAY 250
 #define MODE_RESET_DELAY 2500
+#define EEPROM_MODE_MEM_SIZE 12
 #define EEPROM_MODE_MEM_ADDR 0
 
 class AutoCommandPedal : public AutoCommand
@@ -15,53 +16,83 @@ private:
   ezOutput *m_led;
   ezOutput *m_output;
 
-  bool m_isActiveMode = false;
+  int m_lastModeBeforeSpecial = 2;
 
-  void hardUnlock()
+  bool m_isChanging = false;
+  bool m_isChangingBlinked = false;
+  int m_isChangingCounter = 0;
+
+  bool isActiveMode()
   {
-    setValetMode();
-    setValetMode();
-    tickMode();
+    return EEPROM.read(EEPROM_MODE_MEM_ADDR) == 1;
   }
 
-  void readMemory()
+  bool isParkMode()
   {
-    EEPROM.begin(0);
-    m_isActiveMode = EEPROM.read(EEPROM_MODE_MEM_ADDR) == 20;
+    return EEPROM.read(EEPROM_MODE_MEM_ADDR) == 3;
   }
 
   void resetMode()
   {
-    m_isActiveMode = !m_isActiveMode;
+    m_isChanging = true;
     m_led->blink(200, 200, 0, 2);
     updateModeLed();
   }
 
   void toggleMode()
   {
-    if (m_isActiveMode)
+    if (isParkMode())
+    {
+      tickMode();
+      EEPROM.put(EEPROM_MODE_MEM_ADDR, m_lastModeBeforeSpecial);
+    }
+    else if (isActiveMode())
     {
       m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 4);
+      EEPROM.put(EEPROM_MODE_MEM_ADDR, 2);
     }
     else
     {
       m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 8);
+      EEPROM.put(EEPROM_MODE_MEM_ADDR, 1);
     }
-    m_isActiveMode = !m_isActiveMode;
+
+    EEPROM.commit();
+
+    m_isChanging = true;
+    updateModeLed();
+  }
+
+  void setValetMode()
+  {
+    m_output->pulse(MODE_RESET_DELAY);
+    EEPROM.put(EEPROM_MODE_MEM_ADDR, 3);
+
+    EEPROM.commit();
+
+    m_isChanging = true;
     updateModeLed();
   }
 
   void updateModeLed(unsigned long t_delay = 0)
   {
-    if (m_isActiveMode)
+
+    if (m_isChanging && !m_isChangingBlinked)
+    {
+      m_led->blink(250, 250);
+      m_isChangingBlinked = true;
+    }
+    else if (isActiveMode())
     {
       m_led->high();
-      EEPROM.write(EEPROM_MODE_MEM_ADDR, 20);
+    }
+    else if (isParkMode())
+    {
+      m_led->blink(1000, 2000);
     }
     else
     {
       m_led->low();
-      EEPROM.write(EEPROM_MODE_MEM_ADDR, 250);
     }
   }
 
@@ -75,9 +106,8 @@ public:
 
   void setup()
   {
+    EEPROM.begin(EEPROM_MODE_MEM_SIZE);
     m_output->high();
-    hardUnlock();
-    readMemory();
     updateModeLed();
   }
 
@@ -86,6 +116,26 @@ public:
     m_button->loop();
     m_led->loop();
     m_output->loop();
+
+    if (m_isChanging)
+    {
+      int counterMax = 20;
+      if (isActiveMode() || isParkMode())
+        counterMax = 40;
+
+      if (m_isChangingCounter++ > counterMax)
+      {
+        m_isChanging = false;
+        m_isChangingCounter = 0;
+        m_isChangingBlinked = false;
+      }
+      else
+      {
+        return;
+      }
+    }
+
+    updateModeLed();
 
     if (m_button->isClicked())
     {
@@ -109,12 +159,7 @@ public:
   {
     m_led->blink(200, 200, 0, 2);
     m_output->pulse(MODE_CHANGE_DELAY);
-  }
-
-  void setValetMode()
-  {
-    m_led->blink(200, 200, 0, 4);
-    m_output->pulse(MODE_RESET_DELAY);
+    m_lastModeBeforeSpecial = isActiveMode() ? 1 : 2;
   }
 };
 

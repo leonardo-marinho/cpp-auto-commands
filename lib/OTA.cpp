@@ -12,16 +12,7 @@ private:
   char *m_wifiSSID;
   char *m_wifiPassword;
 
-  void setupOTA()
-  {
-    ArduinoOTA.begin();
-  }
-
-  void setupWiFi()
-  {
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(m_wifiSSID, m_wifiPassword);
-  }
+  bool m_otaReady = false;
 
 public:
   OTA(char *t_otaHostname, char *t_otaPassword, char *t_wifiSSID, char *t_wifiPassword)
@@ -32,10 +23,42 @@ public:
     ArduinoOTA.setPassword(t_otaPassword);
   }
 
-  void setup()
+  void connect()
   {
-    setupWiFi();
-    setupOTA();
+    if (isConnected())
+      return;
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(m_wifiSSID, m_wifiPassword);
+    delay(2000);
+  }
+
+  bool isConnected()
+  {
+    return WiFi.status() == WL_CONNECTED;
+  }
+
+  void setupOTA()
+  {
+    if (isConnected() && !isOTAReady())
+    {
+      ArduinoOTA.begin();
+      m_otaReady = true;
+    }
+  }
+
+  bool isOTAReady()
+  {
+    return m_otaReady;
+  }
+
+  void disconnect()
+  {
+    if (isConnected())
+    {
+      ArduinoOTA.end();
+      WiFi.disconnect();
+      m_otaReady = false;
+    }
   }
 
   void loop()

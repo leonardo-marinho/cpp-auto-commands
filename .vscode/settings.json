@@ -1,6 +1,8 @@
 {
   "C_Cpp.errorSquiggles": "enabled",
   "files.associations": {
+    "*.mqh": "cpp",
+    "*.mq5": "cpp",
     "array": "cpp",
     "deque": "cpp",
     "string": "cpp",
@@ -8,7 +10,18 @@
     "vector": "cpp",
     "string_view": "cpp",
     "initializer_list": "cpp",
-    "*.tcc": "cpp"
+    "*.tcc": "cpp",
+    "unordered_set": "cpp",
+    "optional": "cpp",
+    "istream": "cpp",
+    "ostream": "cpp",
+    "system_error": "cpp",
+    "functional": "cpp",
+    "tuple": "cpp",
+    "type_traits": "cpp",
+    "utility": "cpp",
+    "new": "cpp",
+    "cmath": "cpp"
   },
   "cSpell.words": ["EEPROM"]
 }

@@ -1,12 +1,15 @@
 #ifndef Config_hpp
 #define Config_hpp
 
-struct OTAConfig
+struct AutoCommandOTAConfig
 {
   char *otaHostname;
   char *otaPassword;
   char *wifiHostname;
   char *wifiPassword;
+  int buttonPin;
+  int ledPin1;
+  int ledPin2;
 };
 
 struct AutoCommandPedalConfig
@@ -26,7 +29,7 @@ struct AutoCommandGateConfig
 
 struct Config
 {
-  OTAConfig otaConfig;
+  AutoCommandOTAConfig autoCommandOTA;
   AutoCommandPedalConfig autoCommandPedal;
   AutoCommandGateConfig autoCommandGate;
   int backlightPin;
