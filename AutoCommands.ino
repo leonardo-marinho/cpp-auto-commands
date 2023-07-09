@@ -17,7 +17,6 @@ AutoCommandGate commandGate(config.autoCommandGate.buttonPin, config.autoCommand
 
 void setup()
 {
-  Serial.begin(115200);
   commandBacklight.high();
   commandBacklightGnd.low();
   commandPedal.setup();

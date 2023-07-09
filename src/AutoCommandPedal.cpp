@@ -7,15 +7,16 @@
 
 #define MODE_CHANGE_DELAY 200
 #define MODE_PARK_DELAY 2500
-#define EEPROm_targetMode_MEM_ADDR 0
-#define MAX_FEEDBACK_FAILS 150
+#define MAX_FEEDBACK_FAILS 80
 
 #define NORMAL_MODE PedalBLEModesEnum::M_0
+#define PARK_MODE PedalBLEModesEnum::PARK
 #define FAST_MODE PedalBLEModesEnum::M_100
 
 class AutoCommandPedal : public AutoCommand
 {
 private:
+  boolean m_firstRun = true;
   boolean m_seeking = false;
   PedalBLE *m_pedalBLE;
   Button *m_button;
@@ -26,6 +27,13 @@ private:
   PedalBLEModesEnum m_memMode = PedalBLEModesEnum::M_NONE;
   int m_feedbackWait = 0;
   int m_feedbackWaitFails = 0;
+
+  void acknowledgeError()
+  {
+    m_feedbackWaitFails = 0;
+    m_feedbackWait = false;
+    m_memMode = PedalBLEModesEnum::M_NONE;
+  }
 
   void updateLeds()
   {
@@ -99,17 +107,35 @@ public:
     m_pedalBLE->loop();
 
     m_currMode = PedalBLE::getMode();
-    Serial.println("[PEDAL] Mem Mode: " + String(m_memMode) + " Curr Mode: " + String(m_currMode) + " | Target Mode: " + String(m_targetMode) + " | Failed feedbacks: " + String(m_feedbackWaitFails));
+    Serial.println("[PEDAL] Mem Mode: " + String(m_memMode) + " Curr Mode: " + String(m_currMode) + " | Target Mode: " + String(m_targetMode) + " | Failed feedbacks: " + String(m_feedbackWaitFails) + " | Waiting for feedback: " + String(m_feedbackWait));
 
     updateLeds();
 
-    if (!m_pedalBLE->isConnected())
+    if (!m_pedalBLE->isConnected() || m_currMode == PedalBLEModesEnum::M_NONE)
     {
       return;
     }
 
-    if (m_feedbackWaitFails > MAX_FEEDBACK_FAILS)
+    if (m_firstRun)
     {
+      if (m_currMode == PARK_MODE || m_currMode == NORMAL_MODE)
+      {
+        m_targetMode = m_currMode;
+      }
+      else
+      {
+        m_targetMode = NORMAL_MODE;
+      }
+      m_firstRun = false;
+    }
+
+    if (m_feedbackWaitFails >= MAX_FEEDBACK_FAILS)
+    {
+      if (m_button->isClicked())
+      {
+        acknowledgeError();
+        setMode(NORMAL_MODE);
+      }
       m_output->high();
       return;
     }
@@ -138,21 +164,33 @@ public:
       {
         m_feedbackWaitFails++;
       }
-
       return;
     }
 
-    if (m_button->isClicked())
+    if (m_currMode == LOCK)
     {
-      toggleMode();
+      if (m_button->isMultiClicked())
+        setMode(NORMAL_MODE);
     }
-    else if (m_button->isLongClicked())
+    else if (m_currMode == PARK_MODE)
     {
-      setMode(PARK);
+      if (m_button->isDoubleClicked())
+        toggleMode();
     }
-    else if (m_button->isMultiClicked())
+    else
     {
-      setMode(LOCK);
+      if (m_button->isClicked())
+      {
+        toggleMode();
+      }
+      else if (m_button->isDoubleClicked())
+      {
+        setMode(PARK);
+      }
+      else if (m_button->isMultiClicked())
+      {
+        setMode(LOCK);
+      }
     }
   }
 };
