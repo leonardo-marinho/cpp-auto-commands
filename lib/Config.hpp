@@ -15,6 +15,7 @@ struct AutoCommandOTAConfig
 struct AutoCommandPedalConfig
 {
   int buttonPin;
+  int buttonEmergencyPin;
   int ledPin;
   int outputPin;
 };

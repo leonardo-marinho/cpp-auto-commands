@@ -12,7 +12,7 @@ static BLEUUID characteristicNotifyUUID("FFE2");
 
 ezOutput commandBacklight(config.backlightPin);
 ezOutput commandBacklightGnd(config.backlightGnd);
-AutoCommandPedal commandPedal(config.autoCommandPedal.buttonPin, config.autoCommandPedal.ledPin, config.autoCommandPedal.outputPin, DEVICE_NAME, serviceUUID, characteristicWriteUUID, characteristicNotifyUUID);
+AutoCommandPedal commandPedal(config.autoCommandPedal.buttonPin, config.autoCommandPedal.buttonEmergencyPin, config.autoCommandPedal.ledPin, config.autoCommandPedal.outputPin, DEVICE_NAME, serviceUUID, characteristicWriteUUID, characteristicNotifyUUID);
 AutoCommandGate commandGate(config.autoCommandGate.buttonPin, config.autoCommandGate.ledPin, config.autoCommandGate.outputPin1, config.autoCommandGate.outputPin2);
 
 void setup()

@@ -12,6 +12,7 @@
 #define NORMAL_MODE PedalBLEModesEnum::M_0
 #define PARK_MODE PedalBLEModesEnum::PARK
 #define FAST_MODE PedalBLEModesEnum::M_100
+#define LOCK_MODE PedalBLEModesEnum::LOCK
 
 class AutoCommandPedal : public AutoCommand
 {
@@ -20,6 +21,7 @@ private:
   boolean m_seeking = false;
   PedalBLE *m_pedalBLE;
   Button *m_button;
+  Button *m_buttonEmergency;
   ezOutput *m_led;
   ezOutput *m_output;
   PedalBLEModesEnum m_targetMode = NORMAL_MODE;
@@ -84,9 +86,10 @@ private:
   }
 
 public:
-  AutoCommandPedal(uint t_buttonPin, uint t_ledPin, uint t_outputPin, char *t_deviceName, BLEUUID t_serviceUUID, BLEUUID t_charUUID, BLEUUID t_char2UUID)
+  AutoCommandPedal(uint t_buttonPin, uint t_buttonEmergencyPin, uint t_ledPin, uint t_outputPin, char *t_deviceName, BLEUUID t_serviceUUID, BLEUUID t_charUUID, BLEUUID t_char2UUID)
   {
     m_button = new Button(t_buttonPin);
+    m_buttonEmergency = new Button(t_buttonEmergencyPin);
     m_led = new ezOutput(t_ledPin);
     m_output = new ezOutput(t_outputPin);
     m_pedalBLE = new PedalBLE(t_deviceName, t_serviceUUID, t_charUUID, t_char2UUID);
@@ -102,6 +105,7 @@ public:
   void loop()
   {
     m_button->loop();
+    m_buttonEmergency->loop();
     m_led->loop();
     m_output->loop();
     m_pedalBLE->loop();
@@ -118,7 +122,7 @@ public:
 
     if (m_firstRun)
     {
-      if (m_currMode == PARK_MODE || m_currMode == NORMAL_MODE)
+      if (m_currMode == PARK_MODE || m_currMode == LOCK_MODE || m_currMode == NORMAL_MODE)
       {
         m_targetMode = m_currMode;
       }
@@ -169,13 +173,16 @@ public:
 
     if (m_currMode == LOCK)
     {
-      if (m_button->isMultiClicked())
+      if (m_button->isMultiClicked() || m_buttonEmergency->isClicked())
         setMode(NORMAL_MODE);
     }
     else if (m_currMode == PARK_MODE)
     {
       if (m_button->isDoubleClicked())
         toggleMode();
+
+      if (m_buttonEmergency->isClicked())
+        setMode(LOCK_MODE);
     }
     else
     {
@@ -187,7 +194,7 @@ public:
       {
         setMode(PARK);
       }
-      else if (m_button->isMultiClicked())
+      else if (m_button->isMultiClicked() || m_buttonEmergency->isClicked())
       {
         setMode(LOCK);
       }
