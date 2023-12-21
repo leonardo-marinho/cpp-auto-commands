@@ -2,164 +2,203 @@
 #define AutoCommandPedal_cpp
 
 #include "../lib/AutoCommand.cpp"
+#include "../lib/PedalBLE.cpp"
 #include <EEPROM.h>
 
-#define MODE_CHANGE_DELAY 250
-#define MODE_RESET_DELAY 2500
-#define EEPROM_MODE_MEM_SIZE 12
-#define EEPROM_MODE_MEM_ADDR 0
+#define MODE_CHANGE_DELAY 200
+#define MODE_PARK_DELAY 2500
+#define MAX_FEEDBACK_FAILS 80
+
+#define NORMAL_MODE PedalBLEModesEnum::M_0
+#define PARK_MODE PedalBLEModesEnum::PARK
+#define FAST_MODE PedalBLEModesEnum::M_100
+#define LOCK_MODE PedalBLEModesEnum::LOCK
 
 class AutoCommandPedal : public AutoCommand
 {
 private:
+  boolean m_firstRun = true;
+  boolean m_seeking = false;
+  PedalBLE *m_pedalBLE;
   Button *m_button;
+  Button *m_buttonEmergency;
   ezOutput *m_led;
   ezOutput *m_output;
+  PedalBLEModesEnum m_targetMode = NORMAL_MODE;
+  PedalBLEModesEnum m_currMode = PedalBLEModesEnum::M_NONE;
+  PedalBLEModesEnum m_memMode = PedalBLEModesEnum::M_NONE;
+  int m_feedbackWait = 0;
+  int m_feedbackWaitFails = 0;
 
-  int m_lastModeBeforeSpecial = 2;
-
-  bool m_isChanging = false;
-  bool m_isChangingBlinked = false;
-  int m_isChangingCounter = 0;
-
-  bool isActiveMode()
+  void acknowledgeError()
   {
-    return EEPROM.read(EEPROM_MODE_MEM_ADDR) == 1;
+    m_feedbackWaitFails = 0;
+    m_feedbackWait = false;
+    m_memMode = PedalBLEModesEnum::M_NONE;
   }
 
-  bool isParkMode()
+  void updateLeds()
   {
-    return EEPROM.read(EEPROM_MODE_MEM_ADDR) == 3;
-  }
-
-  void resetMode()
-  {
-    m_isChanging = true;
-    m_led->blink(200, 200, 0, 2);
-    updateModeLed();
-  }
-
-  void toggleMode()
-  {
-    if (isParkMode())
+    if (m_feedbackWaitFails >= MAX_FEEDBACK_FAILS)
     {
-      tickMode();
-      EEPROM.put(EEPROM_MODE_MEM_ADDR, m_lastModeBeforeSpecial);
+      m_led->blink(100, 100);
     }
-    else if (isActiveMode())
-    {
-      m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 4);
-      EEPROM.put(EEPROM_MODE_MEM_ADDR, 2);
-    }
-    else
-    {
-      m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 8);
-      EEPROM.put(EEPROM_MODE_MEM_ADDR, 1);
-    }
-
-    EEPROM.commit();
-
-    m_isChanging = true;
-    updateModeLed();
-  }
-
-  void setValetMode()
-  {
-    m_output->pulse(MODE_RESET_DELAY);
-    EEPROM.put(EEPROM_MODE_MEM_ADDR, 3);
-
-    EEPROM.commit();
-
-    m_isChanging = true;
-    updateModeLed();
-  }
-
-  void updateModeLed(unsigned long t_delay = 0)
-  {
-
-    if (m_isChanging && !m_isChangingBlinked)
+    else if (m_currMode != m_targetMode)
     {
       m_led->blink(250, 250);
-      m_isChangingBlinked = true;
     }
-    else if (isActiveMode())
-    {
-      m_led->high();
-    }
-    else if (isParkMode())
+    else if (m_targetMode == PARK)
     {
       m_led->blink(1000, 2000);
     }
-    else
+    else if (m_targetMode == LOCK)
+    {
+      m_led->low();
+    }
+    else if (m_targetMode == FAST_MODE)
+    {
+      m_led->high();
+    }
+    else if (m_targetMode == NORMAL_MODE)
     {
       m_led->low();
     }
   }
 
+  void tickParkMode()
+  {
+    m_output->blink(MODE_PARK_DELAY, MODE_PARK_DELAY, 0, 2);
+  }
+
+  void toggleMode()
+  {
+    m_targetMode = m_currMode == NORMAL_MODE ? FAST_MODE : NORMAL_MODE;
+  }
+
+  void tickMode()
+  {
+    m_output->blink(MODE_CHANGE_DELAY, MODE_CHANGE_DELAY, 0, 2);
+  }
+
+  void setMode(PedalBLEModesEnum t_mode)
+  {
+    m_targetMode = t_mode;
+  }
+
 public:
-  AutoCommandPedal(uint t_buttonPin, uint t_ledPin, uint t_outputPin)
+  AutoCommandPedal(uint t_buttonPin, uint t_buttonEmergencyPin, uint t_ledPin, uint t_outputPin, char *t_deviceName, BLEUUID t_serviceUUID, BLEUUID t_charUUID, BLEUUID t_char2UUID)
   {
     m_button = new Button(t_buttonPin);
+    m_buttonEmergency = new Button(t_buttonEmergencyPin);
     m_led = new ezOutput(t_ledPin);
     m_output = new ezOutput(t_outputPin);
+    m_pedalBLE = new PedalBLE(t_deviceName, t_serviceUUID, t_charUUID, t_char2UUID);
   }
 
   void setup()
   {
-    EEPROM.begin(EEPROM_MODE_MEM_SIZE);
+    m_led->high();
     m_output->high();
-    updateModeLed();
+    m_pedalBLE->setup();
   }
 
   void loop()
   {
     m_button->loop();
+    m_buttonEmergency->loop();
     m_led->loop();
     m_output->loop();
+    m_pedalBLE->loop();
 
-    if (m_isChanging)
+    m_currMode = PedalBLE::getMode();
+    Serial.println("[PEDAL] Mem Mode: " + String(m_memMode) + " Curr Mode: " + String(m_currMode) + " | Target Mode: " + String(m_targetMode) + " | Failed feedbacks: " + String(m_feedbackWaitFails) + " | Waiting for feedback: " + String(m_feedbackWait));
+
+    updateLeds();
+
+    if (!m_pedalBLE->isConnected() || m_currMode == PedalBLEModesEnum::M_NONE)
     {
-      int counterMax = 20;
-      if (isActiveMode() || isParkMode())
-        counterMax = 40;
+      return;
+    }
 
-      if (m_isChangingCounter++ > counterMax)
+    if (m_firstRun)
+    {
+      if (m_currMode == PARK_MODE || m_currMode == LOCK_MODE || m_currMode == NORMAL_MODE)
       {
-        m_isChanging = false;
-        m_isChangingCounter = 0;
-        m_isChangingBlinked = false;
+        m_targetMode = m_currMode;
       }
       else
       {
-        return;
+        m_targetMode = NORMAL_MODE;
+      }
+      m_firstRun = false;
+    }
+
+    if (m_feedbackWaitFails >= MAX_FEEDBACK_FAILS)
+    {
+      if (m_button->isClicked())
+      {
+        acknowledgeError();
+        setMode(NORMAL_MODE);
+      }
+      m_output->high();
+      return;
+    }
+
+    if (m_targetMode != m_currMode)
+    {
+      if (m_currMode != m_memMode && !m_feedbackWait)
+      {
+        if (m_targetMode == PARK || m_targetMode == LOCK)
+        {
+          tickParkMode();
+        }
+        else
+        {
+          tickMode();
+        }
+        m_memMode = m_currMode;
+        m_feedbackWait = true;
+        m_feedbackWaitFails = 0;
+      }
+      else if (m_currMode == m_memMode && m_feedbackWait)
+      {
+        m_feedbackWait = false;
+      }
+      else
+      {
+        m_feedbackWaitFails++;
+      }
+      return;
+    }
+
+    if (m_currMode == LOCK)
+    {
+      if (m_button->isMultiClicked() || m_buttonEmergency->isClicked())
+        setMode(NORMAL_MODE);
+    }
+    else if (m_currMode == PARK_MODE)
+    {
+      if (m_button->isDoubleClicked())
+        toggleMode();
+
+      if (m_buttonEmergency->isClicked())
+        setMode(LOCK_MODE);
+    }
+    else
+    {
+      if (m_button->isClicked())
+      {
+        toggleMode();
+      }
+      else if (m_button->isDoubleClicked())
+      {
+        setMode(PARK);
+      }
+      else if (m_button->isMultiClicked() || m_buttonEmergency->isClicked())
+      {
+        setMode(LOCK);
       }
     }
-
-    updateModeLed();
-
-    if (m_button->isClicked())
-    {
-      toggleMode();
-    }
-    else if (m_button->isDoubleClicked())
-    {
-      setValetMode();
-    }
-    else if (m_button->isLongClicked())
-    {
-      resetMode();
-    }
-    else if (m_button->isMultiClicked())
-    {
-      tickMode();
-    }
-  }
-
-  void tickMode()
-  {
-    m_led->blink(200, 200, 0, 2);
-    m_output->pulse(MODE_CHANGE_DELAY);
-    m_lastModeBeforeSpecial = isActiveMode() ? 1 : 2;
   }
 };
 
