@@ -131,7 +131,6 @@ public:
 
   void loop()
   {
-    Serial.println(m_state);
     bool isDeviceAvailable = m_isDeviceAvailable;
     bool isConnected = m_isConnected;
     if (!isDeviceAvailable && !isConnected)

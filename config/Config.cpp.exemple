@@ -1,27 +1,30 @@
-// #ifndef Config_cpp
-// #define Config_cpp
+#ifndef Config_cpp
+#define Config_cpp
 
-// #include "../lib/Config.hpp"
+#include "../lib/Config.hpp"
 
-// Config config = {
-//     .otaConfig = {
-//         .otaHostname = "",
-//         .otaPassword = "",
-//         .wifiHostname = "",
-//         .wifiPassword = "",
-//     },
-//     .autoCommandPedal = {
-//         .buttonPin = 0,
-//         .ledPin = 0,
-//         .outputPin = 0,
-//     },
-//     .autoCommandGate = {
-//         .buttonPin = 0,
-//         .ledPin = 0,
-//         .outputPin1 = 0,
-//         .outputPin2 = 0,
-//     },
-//     .backlightPin = 0,
-// };
+Config config = {
+    .autoCommandOTA = {
+        .otaHostname = "Nivus_ESP32_OTA",
+        .otaPassword = "nivus",
+        .wifiHostname = "DECO-9288",
+        .wifiPassword = "2213467AB8CEFD",
+        .buttonPin = 19,
+        .ledPin1 = 14,
+        .ledPin2 = 5,
+    },
+    .autoCommandPedal = {
+        .buttonPin = 14,
+        .buttonEmergencyPin = 26,
+        .ledPin = 27,
+        .outputPin = 15,
+    },
+    .autoCommandGate = {
+        .buttonPin = 25,
+        .ledPin = 33,
+        .outputPin1 = 12,
+        .outputPin2 = 13,
+    },
+};
 
-// #endif
+#endif

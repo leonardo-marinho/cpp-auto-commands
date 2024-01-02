@@ -19,6 +19,7 @@ class AutoCommandPedal : public AutoCommand
 private:
   boolean m_firstRun = true;
   boolean m_seeking = false;
+  bool m_isSportMode = false;
   PedalBLE *m_pedalBLE;
   Button *m_button;
   Button *m_buttonEmergency;
@@ -27,6 +28,7 @@ private:
   PedalBLEModesEnum m_targetMode = NORMAL_MODE;
   PedalBLEModesEnum m_currMode = PedalBLEModesEnum::M_NONE;
   PedalBLEModesEnum m_memMode = PedalBLEModesEnum::M_NONE;
+  PedalBLEModesEnum m_clutchReturnTo = PedalBLEModesEnum::M_NONE;
   int m_feedbackWait = 0;
   int m_feedbackWaitFails = 0;
 
@@ -111,8 +113,6 @@ public:
     m_pedalBLE->loop();
 
     m_currMode = PedalBLE::getMode();
-    Serial.println("[PEDAL] Mem Mode: " + String(m_memMode) + " Curr Mode: " + String(m_currMode) + " | Target Mode: " + String(m_targetMode) + " | Failed feedbacks: " + String(m_feedbackWaitFails) + " | Waiting for feedback: " + String(m_feedbackWait));
-
     updateLeds();
 
     if (!m_pedalBLE->isConnected() || m_currMode == PedalBLEModesEnum::M_NONE)
@@ -171,6 +171,24 @@ public:
       return;
     }
 
+    if (!m_isSportMode)
+    {
+      if (m_clutchReturnTo != PedalBLEModesEnum::M_NONE)
+      {
+        setMode(m_clutchReturnTo);
+        m_clutchReturnTo = PedalBLEModesEnum::M_NONE;
+      }
+    }
+    else if (m_isSportMode)
+    {
+      if (m_button->isMultiClicked() || m_buttonEmergency->isClicked())
+      {
+        setMode(LOCK);
+      }
+      if (m_clutchReturnTo != PedalBLEModesEnum::M_NONE)
+        return;
+    }
+
     if (m_currMode == LOCK)
     {
       if (m_button->isMultiClicked() || m_buttonEmergency->isClicked())
@@ -178,6 +196,13 @@ public:
     }
     else if (m_currMode == PARK_MODE)
     {
+      if (m_isSportMode)
+      {
+        setMode(NORMAL_MODE);
+        m_clutchReturnTo = PARK_MODE;
+        return;
+      }
+
       if (m_button->isDoubleClicked())
         toggleMode();
 
@@ -186,7 +211,13 @@ public:
     }
     else
     {
-      if (m_button->isClicked())
+      if (m_isSportMode && m_currMode == NORMAL_MODE)
+      {
+        setMode(FAST_MODE);
+        m_clutchReturnTo = NORMAL_MODE;
+        return;
+      }
+      else if (m_button->isClicked())
       {
         toggleMode();
       }
@@ -199,6 +230,12 @@ public:
         setMode(LOCK);
       }
     }
+  }
+
+  void
+  setClutchSportMode(bool t_isSportMode)
+  {
+    m_isSportMode = t_isSportMode;
   }
 };
 
