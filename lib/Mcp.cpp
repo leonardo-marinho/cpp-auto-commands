@@ -65,7 +65,7 @@ public:
       {
         debugCanMsg(canMsg);
       }
-    }
+    } 
   }
 
   void debugCanMsg(can_frame t_canMsg)
@@ -210,11 +210,6 @@ public:
         }
       }
     }
-
-    // for (int i = 0; i < m_debugItemsPerPage; i++)
-    // {
-    //   Serial.println();
-    // }
 
     float totalPages = idsCount / m_debugItemsPerPage + 0.5;
 

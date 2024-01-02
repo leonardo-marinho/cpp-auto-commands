@@ -113,8 +113,6 @@ public:
     m_pedalBLE->loop();
 
     m_currMode = PedalBLE::getMode();
-    Serial.println("[PEDAL] Mem Mode: " + String(m_memMode) + " Curr Mode: " + String(m_currMode) + " | Target Mode: " + String(m_targetMode) + " | Sport mode: " + String(m_isSportMode) + " | Failed feedbacks: " + String(m_feedbackWaitFails) + " | Waiting for feedback: " + String(m_feedbackWait));
-
     updateLeds();
 
     if (!m_pedalBLE->isConnected() || m_currMode == PedalBLEModesEnum::M_NONE)
